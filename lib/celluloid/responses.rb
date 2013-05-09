@@ -8,7 +8,7 @@ module Celluloid
     end
 
     def dispatch
-      @call.task.resume self
+      @call.resume self
     end
   end
 

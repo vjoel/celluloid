@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe Celluloid::SyncCall do
+describe Celluloid::Call do
   class CallExampleActor
     include Celluloid
 

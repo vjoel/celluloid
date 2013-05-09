@@ -22,7 +22,7 @@ module Celluloid
         raise "Cannot use blocks with async yet"
       end
 
-      @mailbox << AsyncCall.new(meth, args, block)
+      @mailbox << Call.new(nil, meth, args, block, nil)
     end
   end
 end

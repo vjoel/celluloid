@@ -1,9 +1,10 @@
 module Celluloid
   # Calls represent requests to an actor
   class Call
-    attr_reader :method, :arguments, :block
+    attr_reader :method, :arguments, :block, :chain_id
 
-    def initialize(method, arguments = [], block = nil)
+    def initialize(responder, method, arguments, block, chain_id = Thread.current[:celluloid_chain_id])
+      @responder = responder
       @method, @arguments = method, arguments
       if block
         if Celluloid.exclusive?
@@ -14,6 +15,7 @@ module Celluloid
       else
         @block = nil
       end
+      @chain_id = chain_id || Celluloid.uuid
     end
 
     def execute_block_on_receiver
@@ -21,6 +23,28 @@ module Celluloid
     end
 
     def dispatch(obj)
+      Thread.current[:celluloid_chain_id] = @chain_id
+      result = invoke(obj)
+      respond SuccessResponse.new(self, result)
+    rescue Exception => ex
+      # Exceptions that occur during synchronous calls are reraised in the
+      # context of the sender
+      respond ErrorResponse.new(self, ex)
+
+      # Aborting indicates a protocol error on the part of the sender
+      # It should crash the sender, but the exception isn't reraised
+      # Otherwise, it's a bug in this actor and should be reraised
+      if ex.is_a?(AbortError)
+        # TODO: only log for async
+        Logger.debug("#{obj.class}: call `#@method` aborted!\n#{Logger.format_exception(ex.cause)}")
+      else
+        raise
+      end
+    ensure
+      Thread.current[:celluloid_chain_id] = nil
+    end
+
+    def invoke(obj)
       _block = @block && @block.to_proc
       obj.public_send(@method, *@arguments, &_block)
     rescue NoMethodError => ex
@@ -48,54 +72,47 @@ module Celluloid
       # Otherwise something blew up. Crash this actor
       raise
     end
-  end
 
-  # Synchronous calls wait for a response
-  class SyncCall < Call
-    attr_reader :sender, :task, :chain_id
-
-    def initialize(sender, method, arguments = [], block = nil, task = Thread.current[:celluloid_task], chain_id = Thread.current[:celluloid_chain_id])
-      super(method, arguments, block)
-
-      @sender   = sender
-      @task     = task
-      @chain_id = chain_id || Celluloid.uuid
+    def respond(message)
+      @responder.signal message if @responder
     end
 
-    def dispatch(obj)
-      Thread.current[:celluloid_chain_id] = @chain_id
-      result = super(obj)
-      respond SuccessResponse.new(self, result)
-    rescue Exception => ex
-      # Exceptions that occur during synchronous calls are reraised in the
-      # context of the sender
-      respond ErrorResponse.new(self, ex)
-
-      # Aborting indicates a protocol error on the part of the sender
-      # It should crash the sender, but the exception isn't reraised
-      # Otherwise, it's a bug in this actor and should be reraised
-      raise unless ex.is_a?(AbortError)
-    ensure
-      Thread.current[:celluloid_chain_id] = nil
+    def resume(message)
+      @responder.resume message if @responder
     end
 
     def cleanup
       exception = DeadActorError.new("attempted to call a dead actor")
       respond ErrorResponse.new(self, exception)
     end
+  end
 
-    def respond(message)
-      @sender << message
+  # Synchronous calls wait for a response
+  class ResumingResponder
+    attr_reader :sender, :task
+
+    def initialize(sender, task = Thread.current[:celluloid_task])
+      @sender   = sender
+      @task     = task
     end
 
-    def value
+    def signal(response)
+      @sender << response
+    end
+
+    def resume(message)
+      @task.resume message
+    end
+
+    def wait_for(call)
+      @call = call
       Celluloid.suspend(:callwait, self).value
     end
 
     def wait
       loop do
         message = Celluloid.mailbox.receive do |msg|
-          msg.respond_to?(:call) and msg.call == self
+          msg.respond_to?(:call) and msg.call == @call
         end
 
         if message.is_a?(SystemEvent)
@@ -112,21 +129,6 @@ module Celluloid
         end
       end
     end
-  end
-
-  # Asynchronous calls don't wait for a response
-  class AsyncCall < Call
-
-    def dispatch(obj)
-      Thread.current[:celluloid_chain_id] = Celluloid.uuid
-      super(obj)
-    rescue AbortError => ex
-      # Swallow aborted async calls, as they indicate the sender made a mistake
-      Logger.debug("#{obj.class}: async call `#@method` aborted!\n#{Logger.format_exception(ex.cause)}")
-    ensure
-      Thread.current[:celluloid_chain_id] = nil
-    end
-
   end
 
   class BlockCall

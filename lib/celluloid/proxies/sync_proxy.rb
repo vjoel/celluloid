@@ -21,9 +21,10 @@ module Celluloid
         meth = :__send__
       end
 
-      call = SyncCall.new(::Celluloid.mailbox, meth, args, block)
+      responder = ResumingResponder.new(::Celluloid.mailbox)
+      call = Call.new(responder, meth, args, block)
       @mailbox << call
-      call.value
+      responder.wait_for(call)
     end
   end
 end
