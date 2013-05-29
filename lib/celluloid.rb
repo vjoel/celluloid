@@ -81,6 +81,7 @@ module Celluloid
     # FIXME: We should set up the supervision hierarchy here
     def boot
       internal_pool.reset
+      sleep 0.5
       Celluloid::Notifications::Fanout.supervise_as :notifications_fanout
       Celluloid::IncidentReporter.supervise_as :default_incident_reporter, STDERR
     end
@@ -133,12 +134,21 @@ module Celluloid
       end
     rescue Timeout::Error
       Logger.error("Couldn't cleanly terminate all actors in #{shutdown_timeout} seconds!")
+    ensure
       # TODO: cleanup all threads
       actors.each do |actor|
         begin
           Actor.kill(actor)
         rescue DeadActorError, MailboxError
         end
+      end
+      orphans = Thread.list.select(&:celluloid?)
+      if orphans.any?
+        Logger.debug "Killing #{orphans.size} orphaned Threads"
+        orphans.map(&:kill)
+      end
+      Thread.list.map do |thread|
+        thread[:celluloid_mailbox] = nil
       end
     end
   end
