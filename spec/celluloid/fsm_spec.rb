@@ -100,6 +100,7 @@ describe Celluloid::FSM do
     end
 
     it "should not call transition! if the state is :default" do
+      pending "mocks"
       subject.should_not_receive :transition!
       subject.transition :default
     end

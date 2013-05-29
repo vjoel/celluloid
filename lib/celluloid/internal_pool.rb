@@ -7,6 +7,7 @@ module Celluloid
 
     def initialize
       @mutex = Mutex.new
+      @condition = ConditionVariable.new
 
       reset
     end
@@ -14,8 +15,11 @@ module Celluloid
     def reset
       # TODO: should really adjust this based on usage
       if @pool && @pool.any?
-        $stderr.print "whoops, cleanup failed: #{@pool.size}: #{@pool.inspect}\n"
+        message = "whoops, cleanup failed: #{@pool.size}: #{@pool.inspect}\n"
+        binding.pry
         @pool.each(&:kill)
+        @pool.clear
+        raise message
       end
       @pool = []
       @busy_size = @idle_size = 0
@@ -51,6 +55,7 @@ module Celluloid
           @idle_size += 1
           @busy_size -= 1
         end
+        @condition.broadcast
       end
     end
 
@@ -79,7 +84,23 @@ module Celluloid
         @pool.each do |thread|
           thread[:celluloid_queue] << nil
         end
+        loop do
+          @condition.wait(@mutex, 1)
+          $stderr.print "pool: #{@pool.inspect}\n"
+          break if @pool.empty?
+        end
       end
+    end
+
+    def kill
+      orphans = Thread.list.select(&:celluloid?) | @pool
+
+      if orphans.any?
+        Logger.debug "Killing #{orphans.size} orphaned Threads"
+        orphans.map(&:kill)
+        @pool.clear
+      end
+
     end
   end
 

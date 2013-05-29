@@ -149,12 +149,7 @@ module Celluloid
         end
       end
 
-      orphans = Thread.list.select(&:celluloid?)
-
-      if orphans.any?
-        Logger.debug "Killing #{orphans.size} orphaned Threads"
-        orphans.map(&:kill)
-      end
+      internal_pool.kill
 
       Thread.list.map do |thread|
         thread[:celluloid_mailbox] = nil

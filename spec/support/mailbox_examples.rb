@@ -55,6 +55,7 @@ shared_context "a Celluloid Mailbox" do
   end
 
   it "logs discarded messages" do
+    pending "mocks"
     Celluloid.logger = mock.as_null_object
     Celluloid.logger.should_receive(:debug).with("Discarded message: third")
 
@@ -65,6 +66,7 @@ shared_context "a Celluloid Mailbox" do
   end
 
   it "discard messages when dead" do
+    pending "mocks"
     Celluloid.logger = mock.as_null_object
     Celluloid.logger.should_receive(:debug).with("Discarded message: third")
 
