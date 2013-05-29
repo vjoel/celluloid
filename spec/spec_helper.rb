@@ -14,7 +14,7 @@ Celluloid.shutdown_timeout = 1
 
 Dir['./spec/support/*.rb'].map {|f| require f }
 
-require 'pry'
+require 'pry-remote'
 
 RSpec.configure do |config|
   config.filter_run :focus => true
@@ -71,7 +71,7 @@ Thread.new {
     end
     thread = Thread.new {
       Celluloid.dump
-      binding.pry
+      binding.remote_pry
     }
   end
 }
