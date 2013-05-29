@@ -39,11 +39,11 @@ RSpec.configure do |config|
       $spec_thread = Thread.new {
         mutex.synchronize {
           begin
-            Celluloid.logger.info "before example"
+            $stderr.print "before example\n"
             example.run
-            Celluloid.logger.info "after example"
+            $stderr.print "after example\n"
           rescue Exception => ex
-            Celluloid.logger.crash ex, "Got an exception with spec thread"
+            $stderr.print "Got an exception with spec thread\n#{ex.inspect}\n#{ex.backtrace.join("\n")}"
           end
           condition.signal
         }
