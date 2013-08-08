@@ -91,7 +91,11 @@ module Celluloid
 
     # Resume a suspended task, giving it a value to return if needed
     def resume(value = nil)
-      deliver(value)
+      if running?
+        deliver(value)
+      else
+        Celluloid.logger.warn "Attempted to resume a dead task: type=#{@type.inspect}, meta=#{@meta.inspect}, status=#{@status.inspect}"
+      end
       nil
     end
 
