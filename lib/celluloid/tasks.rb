@@ -83,6 +83,11 @@ module Celluloid
 
       value = signal
 
+      if value.is_a?(Exception) && value.backtrace
+        value.backtrace << "(celluloid):0:in `task suspension'"
+        value.backtrace.concat(caller)
+      end
+
       @status = :running
       raise value if value.is_a?(Celluloid::ResumableError)
 
