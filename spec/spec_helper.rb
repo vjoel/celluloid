@@ -6,8 +6,12 @@ require 'bundler/setup'
 require 'celluloid'
 require 'celluloid/rspec'
 
-logfile = File.open(File.expand_path("../../log/test.log", __FILE__), 'a')
-logfile.sync = true
+if ENV["CI"]
+  logfile = $stderr
+else
+  logfile = File.open(File.expand_path("../../log/test.log", __FILE__), 'a')
+  logfile.sync = true
+end
 
 logger = Celluloid.logger = Logger.new(logfile)
 
