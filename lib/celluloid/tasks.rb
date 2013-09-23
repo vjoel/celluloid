@@ -73,7 +73,7 @@ module Celluloid
 
       @status = status
 
-      if $CELLULOID_DEBUG && @dangerous_suspend
+      if $CELLULOID_DEBUG && @dangerous_suspend && outside_buggy_location?
         warning = "Dangerously suspending task: "
         warning << [
           "type=#{@type.inspect}",
@@ -97,6 +97,15 @@ module Celluloid
       guard "Cannot resume a task from inside of a task" if Thread.current[:celluloid_task]
       deliver(value)
       nil
+    end
+
+    def outside_buggy_location?
+      caller.all? do |location|
+        !location[/celluloid.rb:\d+:in `new_link'/] &&
+          !location[/celluloid\/supervisor.rb:\d+:in `block in supervise'/] &&
+          !location[/celluloid\/supervisor.rb:\d+:in `block in supervise_as'/] &&
+          !location[/celluloid\/notifications.rb:\d+:in `subscribe'/]
+      end
     end
 
     # Execute a code block in exclusive mode.
