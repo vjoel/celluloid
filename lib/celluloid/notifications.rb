@@ -5,15 +5,15 @@ module Celluloid
     end
 
     def publish(pattern, *args)
-      Celluloid::Notifications.notifier.publish(pattern, *args)
+      Celluloid::Notifications.notifier.async.publish(pattern, *args)
     end
 
     def subscribe(pattern, method)
-      Celluloid::Notifications.notifier.subscribe(Actor.current, pattern, method)
+      Celluloid::Notifications.notifier.async.subscribe(Actor.current, pattern, method)
     end
 
     def unsubscribe(*args)
-      Celluloid::Notifications.notifier.unsubscribe(*args)
+      Celluloid::Notifications.notifier.async.unsubscribe(*args)
     end
 
     class Fanout
