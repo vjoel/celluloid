@@ -102,13 +102,16 @@ module Celluloid
           msg.respond_to?(:call) and msg.call == self
         end
 
+        system_events = []
+
         if message.is_a?(SystemEvent)
-          Thread.current[:celluloid_actor].handle_system_event(message)
+          system_events << message
         else
           # FIXME: add check for receiver block execution
           if message.respond_to?(:value)
             # FIXME: disable block execution if on :sender and (exclusive or outside of task)
             # probably now in Call
+            system_events.each { |ev| Celluloid.mailbox << ev }
             break message
           else
             message.dispatch

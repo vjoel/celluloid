@@ -151,8 +151,22 @@ module Celluloid
       @running   = false
       @name      = nil
 
-      handle(SystemEvent) do |message|
-        handle_system_event message
+      # Handle high-priority system event messages
+      handle(ExitEvent) do |event|
+        handle_exit_event(event)
+      end
+      handle(LinkingRequest) do |event|
+        event.process(links)
+      end
+      handle(NamingRequest) do |event|
+        @name = event.name
+        Celluloid::Probe.actor_named(self) if $CELLULOID_MONITORING
+      end
+      handle(TerminationRequest) do |event|
+        terminate
+      end
+      handle(SignalConditionRequest) do |event|
+        event.call
       end
     end
 
@@ -251,12 +265,19 @@ module Celluloid
 
     # Receive an asynchronous message
     def receive(timeout = nil, &block)
-      loop do
+      system_events = []
+
+      result = loop do
         message = @receivers.receive(timeout, &block)
+        # FIXME: what if you were trying to receive a SystemEvent?
         break message unless message.is_a?(SystemEvent)
 
-        handle_system_event(message)
+        system_events << message
       end
+
+      system_events.each { |ev| @mailbox << ev }
+
+      result
     end
 
     # How long to wait until the next timer fires
@@ -325,23 +346,6 @@ module Celluloid
         end
       end
       message
-    end
-
-    # Handle high-priority system event messages
-    def handle_system_event(event)
-      case event
-      when ExitEvent
-        handle_exit_event(event)
-      when LinkingRequest
-        event.process(links)
-      when NamingRequest
-        @name = event.name
-        Celluloid::Probe.actor_named(self) if $CELLULOID_MONITORING
-      when TerminationRequest
-        terminate
-      when SignalConditionRequest
-        event.call
-      end
     end
 
     # Handle exit events received by this actor
