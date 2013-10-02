@@ -145,7 +145,6 @@ module Celluloid
       @tasks     = TaskSet.new
       @links     = Links.new
       @signals   = Signals.new
-      @receivers = Receivers.new
       @timers    = Timers.new
       @handlers  = Handlers.new
       @running   = false
@@ -185,7 +184,6 @@ module Celluloid
           else
             # No message indicates a timeout
             @timers.fire
-            @receivers.fire_timers
           end
         end
       rescue MailboxShutdown
@@ -249,28 +247,9 @@ module Celluloid
       @handlers.handle(*patterns, &block)
     end
 
-    # Receive an asynchronous message
-    def receive(timeout = nil, &block)
-      loop do
-        message = @receivers.receive(timeout, &block)
-        break message unless message.is_a?(SystemEvent)
-
-        handle_system_event(message)
-      end
-    end
-
     # How long to wait until the next timer fires
     def timeout_interval
-      i1 = @timers.wait_interval
-      i2 = @receivers.wait_interval
-
-      if i1 and i2
-        i1 < i2 ? i1 : i2
-      elsif i1
-        i1
-      else
-        i2
-      end
+      @timers.wait_interval
     end
 
     # Schedule a block to run at the given time
@@ -320,9 +299,7 @@ module Celluloid
     # Handle standard low-priority messages
     def handle_message(message)
       unless @handlers.handle_message(message)
-        unless @receivers.handle_message(message)
-          Logger.debug "Discarded message (unhandled): #{message}" if $CELLULOID_DEBUG
-        end
+        Logger.debug "Discarded message (unhandled): #{message}" if $CELLULOID_DEBUG
       end
       message
     end

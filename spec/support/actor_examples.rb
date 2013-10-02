@@ -696,41 +696,6 @@ shared_examples "Celluloid::Actor examples" do |included_module, task_klass|
     end
   end
 
-  context :receiving do
-    before do
-      @receiver = Class.new do
-        include included_module
-        task_class task_klass
-        execute_block_on_receiver :signal_myself
-
-        def signal_myself(obj, &block)
-          current_actor.mailbox << obj
-          receive(&block)
-        end
-      end
-    end
-
-    let(:receiver) { @receiver.new }
-    let(:message) { Object.new }
-
-    it "allows unconditional receive" do
-      receiver.signal_myself(message).should eq(message)
-    end
-
-    it "allows arbitrary selective receive" do
-      received_obj = receiver.signal_myself(message) { |o| o == message }
-      received_obj.should eq(message)
-    end
-
-    it "times out after the given interval", :pending => ENV['CI'] do
-      interval = 0.1
-      started_at = Time.now
-
-      receiver.receive(interval) { false }.should be_nil
-      (Time.now - started_at).should be_within(Celluloid::TIMER_QUANTUM).of interval
-    end
-  end
-
   context :timers do
     before do
       @klass = Class.new do

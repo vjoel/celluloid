@@ -1,4 +1,5 @@
 require 'spec_helper'
+__END__
 
 describe "Celluloid.pool" do
   class ExampleError < StandardError; end
