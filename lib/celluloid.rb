@@ -397,16 +397,6 @@ module Celluloid
     Actor.linked_to?(actor)
   end
 
-  # Receive an asynchronous message via the actor protocol
-  def receive(timeout = nil, &block)
-    actor = Thread.current[:celluloid_actor]
-    if actor
-      actor.receive(timeout, &block)
-    else
-      Celluloid.mailbox.receive(timeout, &block)
-    end
-  end
-
   # Sleep letting the actor continue processing messages
   def sleep(interval)
     actor = Thread.current[:celluloid_actor]
