@@ -58,7 +58,7 @@ module Celluloid
     # Start the group
     def initialize(registry = nil)
       @members = []
-      @registry = registry || Registry.root
+      @registry = registry || Celluloid.actor_system.registry
 
       yield current_actor if block_given?
     end
@@ -81,7 +81,7 @@ module Celluloid
     def add(klass, options)
       member = Member.new(@registry, klass, options)
       @members << member
-      member
+      member.actor
     end
 
     def actors
