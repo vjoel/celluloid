@@ -98,21 +98,25 @@ module Celluloid
 
     def wait
       loop do
-        message = Celluloid.mailbox.receive do |msg|
-          msg.respond_to?(:call) and msg.call == self
-        end
-
-        if message.is_a?(SystemEvent)
-          Thread.current[:celluloid_actor].handle_system_event(message)
-        else
-          # FIXME: add check for receiver block execution
-          if message.respond_to?(:value)
-            # FIXME: disable block execution if on :sender and (exclusive or outside of task)
-            # probably now in Call
-            break message
+        unrelated = []
+        if message = Celluloid.mailbox.receive
+          if message.is_a?(SystemEvent)
+            Thread.current[:celluloid_actor].handle_system_event(message)
+          elsif message.respond_to?(:call) && message.call == self
+            # FIXME: add check for receiver block execution
+            if message.respond_to?(:value)
+              # FIXME: disable block execution if on :sender and (exclusive or outside of task)
+              # probably now in Call
+              unrelated.each {|m| Celluloid.mailbox << m}
+              break message
+            else
+              message.dispatch
+            end
           else
-            message.dispatch
+            unrelated << message
           end
+        else
+          raise "FAIL"
         end
       end
     end

@@ -46,7 +46,8 @@ module Celluloid
     end
 
     # Receive a message from the Mailbox
-    def receive(timeout = nil, &block)
+    def receive(timeout = nil)
+      raise ArgumentError, "block given" if block_given?
       message = nil
 
       @mutex.lock
@@ -54,7 +55,7 @@ module Celluloid
         raise MailboxDead, "attempted to receive from a dead mailbox" if @dead
 
         begin
-          message = next_message(&block)
+          message = next_message
 
           unless message
             if timeout
@@ -78,19 +79,7 @@ module Celluloid
 
     # Retrieve the next message in the mailbox
     def next_message
-      message = nil
-
-      if block_given?
-        index = @messages.index do |msg|
-          yield(msg) || msg.is_a?(SystemEvent)
-        end
-
-        message = @messages.slice!(index, 1).first if index
-      else
-        message = @messages.shift
-      end
-
-      message
+      @messages.shift
     end
 
     # Shut down this mailbox and clean up its contents

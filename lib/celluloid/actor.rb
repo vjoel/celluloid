@@ -210,24 +210,22 @@ module Celluloid
 
         loop do
           wait_interval = start_time + LINKING_TIMEOUT - Time.now
-          message = @mailbox.receive(wait_interval) do |msg|
-            msg.is_a?(LinkingResponse) &&
-            msg.actor.mailbox.address == receiver.mailbox.address &&
-            msg.type == type
-          end
+          message = @mailbox.receive(wait_interval)
 
           case message
-          when LinkingResponse
-            Celluloid::Probe.actors_linked(self, receiver) if $CELLULOID_MONITORING
-            # We're done!
-            system_events.each { |ev| @mailbox << ev }
-            return
+          when SystemEvent
+            if message.is_a?(LinkingResponse) && message.matches?(receiver, type)
+              Celluloid::Probe.actors_linked(self, receiver) if $CELLULOID_MONITORING
+              # We're done!
+              system_events.each { |ev| @mailbox << ev }
+              return
+            else
+              # Queue up pending system events to be processed after we've successfully linked
+              system_events << message
+            end
           when NilClass
             raise TimeoutError, "linking timeout of #{LINKING_TIMEOUT} seconds exceeded"
-          when SystemEvent
-            # Queue up pending system events to be processed after we've successfully linked
-            system_events << message
-          else raise 'wtf'
+          else raise "Unexpected message while linking: #{message}"
           end
         end
       end

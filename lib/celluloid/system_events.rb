@@ -22,12 +22,17 @@ module Celluloid
   end
 
   # Response to a link request
-  class LinkingResponse
+  class LinkingResponse < SystemEvent
     attr_reader :actor, :type
 
     def initialize(actor, type)
       @actor, @type = actor, type.to_sym
       raise ArgumentError, "type must be link or unlink" unless [:link, :unlink].include?(@type)
+    end
+
+    def matches?(receiver, type)
+      @actor.mailbox.address == receiver.mailbox.address &&
+        @type == type
     end
   end
 
