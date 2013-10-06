@@ -12,6 +12,8 @@ module Celluloid
     # FIXME: We should set up the supervision hierarchy here
     def start
       within do
+        # TODO: what if this crashes?
+        set(:root, Celluloid::SupervisionGroup.new)
         Celluloid::Notifications::Fanout.supervise_as :notifications_fanout
         Celluloid::IncidentReporter.supervise_as :default_incident_reporter, STDERR
       end
@@ -35,6 +37,18 @@ module Celluloid
 
     def stack_dump
       Celluloid::StackDump.new(@internal_pool)
+    end
+
+    def supervise(klass, *args, &block)
+      within do
+        get(:root).supervise klass, *args, &block
+      end
+    end
+
+    def supervise_as(name, klass, *args, &block)
+      within do
+        get(:root).supervise_as name, klass, *args, &block
+      end
     end
 
     def_delegators "@registry", :[], :get, :[]=, :set, :delete

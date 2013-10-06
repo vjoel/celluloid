@@ -21,8 +21,7 @@ describe Celluloid::Supervisor, actor_system: :global do
   end
 
   it "restarts actors when they die" do
-    supervisor = Celluloid::Supervisor.supervise(Subordinate, :idle)
-    subordinate = supervisor.actors.first
+    subordinate = Celluloid::Supervisor.supervise_as(:worker, Subordinate, :idle)
     subordinate.state.should be(:idle)
 
     subordinate.crack_the_whip
@@ -34,7 +33,7 @@ describe Celluloid::Supervisor, actor_system: :global do
     sleep 0.1 # hax to prevent race :(
     subordinate.should_not be_alive
 
-    new_subordinate = supervisor.actors.first
+    new_subordinate = Celluloid::Actor[:worker]
     new_subordinate.should_not eq subordinate
     new_subordinate.state.should eq :idle
   end
@@ -59,8 +58,7 @@ describe Celluloid::Supervisor, actor_system: :global do
   end
 
   it "creates supervisors via Actor.supervise" do
-    supervisor = Subordinate.supervise(:working)
-    subordinate = supervisor.actors.first
+    subordinate = Subordinate.supervise_as(:worker, :working)
     subordinate.state.should be(:working)
 
     expect do
@@ -69,13 +67,13 @@ describe Celluloid::Supervisor, actor_system: :global do
     sleep 0.1 # hax to prevent race :(
     subordinate.should_not be_alive
 
-    new_subordinate = supervisor.actors.first
+    new_subordinate = Celluloid::Actor[:worker]
     new_subordinate.should_not eq subordinate
     new_subordinate.state.should eq :working
   end
 
   it "creates supervisors and registers actors via Actor.supervise_as" do
-    supervisor = Subordinate.supervise_as(:subordinate, :working)
+    Subordinate.supervise_as(:subordinate, :working)
     subordinate = Celluloid::Actor[:subordinate]
     subordinate.state.should be(:working)
 
@@ -85,7 +83,7 @@ describe Celluloid::Supervisor, actor_system: :global do
     sleep 0.1 # hax to prevent race :(
     subordinate.should_not be_alive
 
-    new_subordinate = supervisor.actors.first
+    new_subordinate = Celluloid::Actor[:subordinate]
     new_subordinate.should_not eq subordinate
     new_subordinate.state.should be(:working)
   end
